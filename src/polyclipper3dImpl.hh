@@ -88,7 +88,7 @@ inline
 int
 nextInFaceLoop(const VertexType& v, const int vprev) {
   const auto itr = find(v.neighbors.begin(), v.neighbors.end(), vprev);
-  PCASSERT(itr != v.neighbors.end());
+  PCALWAYSASSERT(itr != v.neighbors.end());
   if (itr == v.neighbors.begin()) {
     return v.neighbors.back();
   } else {
@@ -104,7 +104,7 @@ inline
 int
 prevInFaceLoop(const VertexType& v, const int vprev) {
   const auto itr = find(v.neighbors.begin(), v.neighbors.end(), vprev);
-  PCASSERT(itr != v.neighbors.end());
+  PCALWAYSASSERT(itr != v.neighbors.end());
   if (itr == v.neighbors.end() - 1) {
     return v.neighbors.front();
   } else {
@@ -270,6 +270,9 @@ void clipPolyhedron(std::vector<Vertex3d<VA>>& polyhedron,
     zmax = std::max(zmax, VA::z(v.position));
   }
 
+  // Vertices within this distance of a plane are treated as in-plane.
+  const auto inPlaneTol = internal::inPlaneTolerance(std::max(xmax - xmin, std::max(ymax - ymin, zmax - zmin)));
+
   // Loop over the planes.
   auto kplane = 0u;
   const auto nplanes = planes.size();
@@ -299,7 +302,7 @@ void clipPolyhedron(std::vector<Vertex3d<VA>>& polyhedron,
       above = true;
       below = true;
       for (auto& v: polyhedron) {
-        v.comp = internal::compare<VA>(plane, v.position);
+        v.comp = internal::compare<VA>(plane, v.position, inPlaneTol);
         if (v.comp == 1) {
           below = false;
         } else if (v.comp == -1) {
@@ -700,9 +703,10 @@ extractFaces(const std::vector<Vertex3d<VA>>& poly) {
           // cerr << "Face: " << i;
           while (inext != istart) {
             // cerr << " " << inext;
-            PCASSERT2(edgesWalked.find(make_pair(iprev, inext)) == edgesWalked.end(),
-                      "Hit a redundant edge: (" << iprev << " " << inext << ")" << endl << polyhedron2string(poly) << endl
-                      << internal::dumpSerializedState(initial_state));
+            // Always checked: corrupt connectivity would otherwise walk this loop forever.
+            PCALWAYSASSERT2(edgesWalked.find(make_pair(iprev, inext)) == edgesWalked.end(),
+                            "Hit a redundant edge: (" << iprev << " " << inext << ")" << endl << polyhedron2string(poly) << endl
+                            << internal::dumpSerializedState(initial_state));
             edgesWalked.insert(make_pair(iprev, inext));
             face.push_back(inext);
             itmp = inext;
