@@ -53,7 +53,10 @@ public:
 #   define PCALWAYSASSERT2(condition, message)                                 \
     do {                                                                       \
         if (! (condition)) {                                                   \
-            throw PolyClipperError(std::string());                             \
+            throw PolyClipperError(std::string("PolyCliper ERROR: Assertion `" \
+                                               #condition "` failed in ")      \
+                                   + __FILE__ + " line "                       \
+                                   + std::to_string(__LINE__));                \
         }                                                                      \
     } while (false)
 #endif
@@ -190,14 +193,30 @@ removeElements(std::vector<Value>& vec,
 
 //------------------------------------------------------------------------------
 // Compare a plane and point.
+// Points within tol of the plane are considered to lie in the plane.
 //------------------------------------------------------------------------------
 template<typename VA>
 inline
 int compare(const Plane<VA>& plane,
-            const typename VA::VECTOR& point) {
+            const typename VA::VECTOR& point,
+            const double tol = 1.0e-10) {
   const auto sgndist = plane.dist + VA::dot(plane.normal, point);
-  if (std::abs(sgndist) < 1.0e-10) return 0;
+  if (std::abs(sgndist) < tol) return 0;
   return sgn0(sgndist);
+}
+
+//------------------------------------------------------------------------------
+// The distance within which a vertex is considered to lie in a clip plane,
+// scaled by the size (bounding box) of the polytope being clipped.  A fixed
+// absolute tolerance fails for small polytopes: several planes passing
+// (nearly) through the same vertex create clusters of nearly coincident
+// vertices instead of reusing the existing one, which can corrupt the
+// connectivity.  We never use less than the original absolute 1e-10.
+//------------------------------------------------------------------------------
+inline
+double inPlaneTolerance(const double boxSize) {
+  const double relativeTolerance = 1.0e-7;
+  return std::max(1.0e-10, relativeTolerance*boxSize);
 }
 
 //------------------------------------------------------------------------------

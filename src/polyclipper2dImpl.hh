@@ -252,6 +252,9 @@ void clipPolygon(std::vector<Vertex2d<VA>>& polygon,
     ymax = std::max(ymax, VA::y(v.position));
   }
 
+  // Vertices within this distance of a plane are treated as in-plane.
+  const auto inPlaneTol = internal::inPlaneTolerance(std::max(xmax - xmin, ymax - ymin));
+
   // Loop over the planes.
   auto kplane = 0u;
   const auto nplanes = planes.size();
@@ -270,7 +273,7 @@ void clipPolygon(std::vector<Vertex2d<VA>>& polygon,
       above = true;
       below = true;
       for (auto& v: polygon) {
-        v.comp = internal::compare<VA>(plane, v.position);
+        v.comp = internal::compare<VA>(plane, v.position, inPlaneTol);
         if (v.comp == 1) {
           below = false;
         } else if (v.comp == -1) {

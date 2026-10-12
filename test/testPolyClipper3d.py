@@ -2,6 +2,7 @@
 
 import unittest
 from math import *
+import os
 import time
 
 from PolyClipper import *
@@ -560,6 +561,31 @@ class TestPolyhedronClipping(unittest.TestCase):
                     assert len(clip) in (0, 1, 2)
                     for iclip in clip:
                         assert iclip in (10, 20)
+
+    #---------------------------------------------------------------------------
+    # Clip with many planes passing (nearly) through the same vertices.
+    # A Voronoi cell from a nearly regular lattice (captured from a Spheral
+    # run): several of the 271 neighbor planes pass within ~1e-9 of the same
+    # vertex.  With a fixed absolute in-plane tolerance these produced clusters
+    # of nearly coincident vertices, corrupting the connectivity at plane 269
+    # (extractFaces then looped forever in optimized builds).
+    #---------------------------------------------------------------------------
+    def testDegenerateVertexClusterClip(self):
+        filename = os.path.join(os.path.dirname(os.path.abspath(__file__)), "degenerate_vertex_cluster_3d.bin")
+        with open(filename, "rb") as f:
+            buf = f.read()
+        poly, itr = deserialize_Polyhedron(0, buf)
+        planes, itr = deserialize_vector_of_Plane3d(itr, buf)
+        self.assertEqual(len(poly), 12)
+        self.assertEqual(len(planes), 271)
+        clipPolyhedron(poly, planes)
+        vol, centroid = moments(poly)
+        answer = 1.4872912063688444e-05
+        self.assertTrue(abs(vol - answer) < 1.0e-8*answer,
+                        "Volume comparison failure: %g != %g" % (vol, answer))
+        faces = extractFaces(poly)
+        for face in faces:
+            self.assertTrue(len(face) >= 3, "Bad face: %s" % face)
 
 if __name__ == "__main__":
     unittest.main()
